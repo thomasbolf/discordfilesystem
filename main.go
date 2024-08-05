@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,7 +12,19 @@ import (
 )
 
 func main() {
+
+	uploadFlag := flag.String("u", "", "Upload a file")
+	flag.Parse()
+	if *uploadFlag != "" {
+		fmt.Println("Uploading file: ", *uploadFlag)
+		upload(*uploadFlag)
+		return
+	}
+
 	err := godotenv.Load()
+	if err != nil {
+		panic("Error loading .env file")
+	}
 	token := os.Getenv("TOKEN")
 	//error check to make sure the token is provided
 	if token == "" {
@@ -42,6 +55,7 @@ func main() {
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Ignore all messages created by the bot itself
 	// This isn't required in this specific example but it's a good practice.
+	fmt.Println(m.ChannelID)
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
