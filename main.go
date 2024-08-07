@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,13 +16,41 @@ import (
 func main() {
 
 	uploadFlag := flag.String("u", "", "Upload a file")
+	downloadFlag := flag.String("d", "", "Download a file")
 	flag.Parse()
 	if *uploadFlag != "" {
 		fmt.Println("Uploading file: ", *uploadFlag)
 		upload(*uploadFlag)
+		//testing download... this is a placeholder that will be removed
+		//id 1: 1270509945401643008
+		//id 2: 1270509946647347264
+		token := os.Getenv("TOKEN")
+		dg, _ := discordgo.New("Bot " + token)
+		fmt.Println("about to download")
+		res, err := dg.ChannelMessage("1268969289373843456", "1270509945401643008")
+		if err != nil {
+			panic("Error reading message")
+		}
+		fmt.Println("downloaded")
+		resURL := res.Attachments[0].URL
+		resp, err := http.Get(resURL)
+		if err != nil {
+			panic("Error getting HTTP response with attachment url")
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			panic("Error reading body")
+		}
+		resString := string(body)
+
+		fmt.Println(resString)
 		return
 	}
-
+	if *downloadFlag != "" {
+		fmt.Println("Downloading file: ", *downloadFlag)
+		download(*downloadFlag)
+		return
+	}
 	err := godotenv.Load()
 	if err != nil {
 		panic("Error loading .env file")

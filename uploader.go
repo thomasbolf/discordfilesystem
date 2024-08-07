@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math"
 	"os"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
@@ -13,41 +15,37 @@ func upload(filepath string) {
 	//load environment variables
 	godotenv.Load()
 	channel := os.Getenv("CHANNEL")
-	//create a session to upload the file
+
+	//create the discord bot and open the file we want to download
 	session, _ := discordgo.New("Bot " + os.Getenv("TOKEN"))
-	//convert file to a byte stream
-	//bot says hi
-	session.ChannelMessageSend(channel, "Hi")
 	file, err := os.Open(filepath)
 	if err != nil {
 		fmt.Println("Error opening file: ", err)
 		return
 	}
 	defer file.Close()
-	//we will make a buffer that will take in 2mb at a time until the file is uploaded
-	//two megabytes at a time: we iterate through the file, load data into a buffer, and send bytes to discord as a raw message of bytes
+	defer session.Close()
+
 	buffer_start := 0
-	buffer_size := 1024 * 2
-	//get size of file
+	//arbitrary, around 32KB
+	buffer_size := 32000
 	file_info, _ := file.Stat()
 	size_remaining := file_info.Size()
-	fmt.Println("File size: ", size_remaining)
 
+	//for record keeping
+	fmt.Println("File size: ", size_remaining)
+	start := time.Now()
+	timeSendingMessages := 0
+	//we are iterating until we are out of bytes to read
 	for {
+		//if we are almost out of bytes, take the size remaining, else take the normal buffer size
 		buffer_size = int(math.Min(float64(buffer_size), float64(size_remaining)))
 		fmt.Println("Buffer start: ", buffer_start)
 		fmt.Println("Size remaining: ", size_remaining)
-		//seek to the buffer_start
 		file.Seek(int64(buffer_start), 0)
-		//create a buffer
 		buffer := make([]byte, buffer_size)
-		//read the file into the buffer
-		//read the file into the buffer, if the buffer_size is greater than the file size, we will read the remaining bytes
-
 		n, err := file.Read(buffer)
 		fmt.Println("Bytes read: ", n)
-		//if we reach the end of the file, break
-
 		if size_remaining <= 0 {
 			break
 		}
@@ -56,16 +54,18 @@ func upload(filepath string) {
 			fmt.Println("Error reading file: ", err)
 			return
 		}
-		//send the bytes as a message containing only text (the bytes)
-		fmt.Println(string(buffer[:n]))
-		session.ChannelMessageSend(channel, string(buffer[:n]))
+		beforeCall := time.Now()
+		message := hex.EncodeToString(buffer)
+		os.WriteFile("message.txt", []byte(message), 0644)
+		readr, _ := os.Open("message.txt")
+		session.ChannelFileSend(channel, "message.txt", readr)
 
-		//increment the buffer_start
+		fmt.Println("Time taken to send message: ", time.Since(beforeCall))
+		timeSendingMessages += int(time.Since(beforeCall).Milliseconds())
 		buffer_start += buffer_size
 		size_remaining -= int64(n)
 	}
-	//close the file
-	file.Close()
-	session.Close()
+	fmt.Println("Time taken to send messages (ms): ", timeSendingMessages)
+	fmt.Println("Time taken: ", time.Since(start))
 
 }
